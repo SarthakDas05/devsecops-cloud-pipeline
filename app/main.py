@@ -1,12 +1,12 @@
-import time
-import sys
+import asyncio
+import hashlib
 import json
 import logging
-import hashlib
-import asyncio
-from datetime import datetime, timezone
+import sys
+import time
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,11 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.schemas import (
     HealthResponse,
-    ReadinessResponse,
     InfoResponse,
     ProcessRequest,
     ProcessResponse,
+    ReadinessResponse,
 )
+
 
 # Configure Structured JSON Logging
 class JsonFormatter(logging.Formatter):
@@ -85,7 +86,7 @@ async def logging_and_metrics_middleware(request: Request, call_next):
     global REQUEST_COUNTER, ERROR_COUNTER
     REQUEST_COUNTER += 1
     start_time = time.perf_counter()
-    
+
     # Extract GCP Cloud Trace ID if present
     trace_header = request.headers.get("X-Cloud-Trace-Context", "")
     trace_id = trace_header.split("/")[0] if trace_header else f"local-{time.time_ns()}"
@@ -181,7 +182,7 @@ async def process_transaction(req: ProcessRequest):
     """Processes a payload and generates a deterministic validation checksum."""
     payload_str = json.dumps(req.payload, sort_keys=True)
     checksum = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
-    
+
     return ProcessResponse(
         transaction_id=req.transaction_id,
         status="processed",
@@ -193,6 +194,7 @@ async def process_transaction(req: ProcessRequest):
 
 # Chaos Engineering endpoints for validating alerting & auto-recovery
 if settings.enable_chaos_endpoints:
+
     @app.post("/chaos/slow", tags=["Chaos Testing"])
     async def chaos_slow(delay_sec: float = 2.5):
         """Simulates latency degradation to test monitoring alert thresholds."""
