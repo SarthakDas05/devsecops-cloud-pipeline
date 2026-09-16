@@ -1,4 +1,4 @@
-project_id             = "your-gcp-project-id"
+project_id             = "devsecops-pipeline-prod"
 region                 = "us-central1"
 service_name           = "devsecops-cloud-microservice"
 artifact_registry_name = "cloud-microservices"
