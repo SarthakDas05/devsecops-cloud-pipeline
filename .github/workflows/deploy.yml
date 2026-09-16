@@ -9,8 +9,8 @@ permissions:
   id-token: 'write' # Required for Workload Identity Federation OIDC token generation
 
 env:
-  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: "us-central1"
+  GCP_PROJECT_ID: "devsecops-pipeline-prod"
   ARTIFACT_REGISTRY_REPO: "cloud-microservices"
   SERVICE_NAME: "devsecops-cloud-microservice"
 
@@ -79,7 +79,7 @@ jobs:
       # Authenticate Docker to Google Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
