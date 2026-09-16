@@ -51,7 +51,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Detect Leaked Secrets with Secretlint
-        uses: secretlint/actions-secretlint@v1
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint Dockerfile with Hadolint
         uses: hadolint/hadolint-action@v3.1.0

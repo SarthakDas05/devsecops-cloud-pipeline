@@ -41,7 +41,9 @@ jobs:
           pytest -v app/tests/
 
       - name: Scan Secrets
-        uses: secretlint/actions-secretlint@v1
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
