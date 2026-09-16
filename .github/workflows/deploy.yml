@@ -49,6 +49,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: app/Dockerfile
+          failure-threshold: error
 
   # ============================================================================
   # 2. Keyless Auth, Container Build, CVE Scan, Push & Terraform Apply
