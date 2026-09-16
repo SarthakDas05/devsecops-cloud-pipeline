@@ -67,7 +67,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Enterprise DevSecOps Cloud Run Microservice with hardened security and observability.",
+    description=(
+        "Enterprise DevSecOps Cloud Run Microservice with hardened security and observability."
+    ),
     lifespan=lifespan,
 )
 
