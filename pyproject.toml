@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-v --cov=app --cov-report=term-missing"
+testpaths = ["app/tests"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["B008"] # Do not flag FastAPI Depends()

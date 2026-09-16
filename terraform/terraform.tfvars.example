@@ -1,0 +1,9 @@
+project_id             = "your-gcp-project-id"
+region                 = "us-central1"
+service_name           = "devsecops-cloud-microservice"
+artifact_registry_name = "cloud-microservices"
+image_tag              = "latest"
+github_repository      = "SarthakDas05/devsecops-cloud-pipeline"
+min_instances          = 0
+max_instances          = 5
+allow_unauthenticated  = true

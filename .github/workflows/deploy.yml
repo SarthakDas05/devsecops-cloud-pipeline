@@ -1,0 +1,138 @@
+name: CD - Production DevSecOps Cloud Run Deployment
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: 'read'
+  id-token: 'write' # Required for Workload Identity Federation OIDC token generation
+
+env:
+  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  ARTIFACT_REGISTRY_REPO: "cloud-microservices"
+  SERVICE_NAME: "devsecops-cloud-microservice"
+
+jobs:
+  # ============================================================================
+  # 1. Quality & Pre-Deployment Gates
+  # ============================================================================
+  pre-deploy-gates:
+    name: Pre-Deployment Security & Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r app/requirements-dev.txt
+
+      - name: Run Tests & Linters
+        run: |
+          ruff check app/
+          pytest -v app/tests/
+
+      - name: Scan Secrets
+        uses: secretlint/actions-secretlint@v1
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: app/Dockerfile
+
+  # ============================================================================
+  # 2. Keyless Auth, Container Build, CVE Scan, Push & Terraform Apply
+  # ============================================================================
+  build-and-deploy:
+    name: Keyless OIDC Build & Terraform Rollout
+    needs: [ pre-deploy-gates ]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Keyless OIDC Authentication to GCP via Workload Identity Federation
+      - name: Authenticate to Google Cloud (Keyless via WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+
+      # Set up Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Authenticate Docker to Google Artifact Registry
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build image locally for CVE scanning before pushing
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          load: true
+          tags: |
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
+
+      # Trivy Security Gate
+      - name: Scan Image for Vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      # Push verified image to Google Artifact Registry
+      - name: Push Container to Artifact Registry
+        run: |
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.8.0'
+
+      # Terraform Deployment
+      - name: Terraform Init & Apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve \
+            -var="project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var="region=${{ env.GCP_REGION }}" \
+            -var="service_name=${{ env.SERVICE_NAME }}" \
+            -var="artifact_registry_name=${{ env.ARTIFACT_REGISTRY_REPO }}" \
+            -var="image_tag=${{ github.sha }}" \
+            -var="github_repository=${{ github.repository }}"
+
+      # Post-deployment live verification
+      - name: Verify Live Service Health
+        run: |
+          cd terraform
+          SERVICE_URL=$(terraform output -raw service_url)
+          echo "Verifying deployment at: ${SERVICE_URL}/health"
+          curl --fail --retry 5 --retry-delay 3 -s "${SERVICE_URL}/health" | grep -q "healthy"
+          echo "Deployment successfully verified!"
