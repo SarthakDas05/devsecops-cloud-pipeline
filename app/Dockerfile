@@ -11,8 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # ==========================================
