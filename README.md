@@ -211,23 +211,5 @@ sudo journalctl -u service_health -f
 
 ---
 
-## 8. Resume STAR Bullets & Interview Talking Points
-
-### 🎯 Resume Bullet
-> *"Engineered an enterprise DevSecOps delivery pipeline using GitHub Actions, Terraform, and Google Cloud Run; eliminated static credentials by implementing keyless Workload Identity Federation (WIF) and integrated Trivy CVE gates, Bandit SAST, and automated Linux health daemons to enforce zero-trust CI/CD."*
-
-### 🎙️ Interview Q&A Cheatsheet
-
-#### Q1: "Why did you use Workload Identity Federation instead of standard Service Account Keys?"
-> **Answer:** *"Storing permanent service account JSON keys in GitHub Secrets creates high security risk: keys do not automatically rotate, can be accidentally leaked in logs, and provide unbounded access if compromised. Workload Identity Federation implements keyless authentication: GitHub generates a short-lived OIDC token (valid for ~5 minutes) signed by GitHub's authority. GCP STS validates the cryptographic signature and token claims (like repository name and branch) before issuing a temporary OAuth access token with strictly scoped permissions."*
-
-#### Q2: "How did you design container security in this project?"
-> **Answer:** *"I implemented a defense-in-depth container security strategy: First, I used a multi-stage Dockerfile that builds dependencies in an ephemeral builder stage and copies only compiled packages into a minimal runtime image. Second, the container executes under a dedicated non-root user (UID 10001:appuser) to prevent container escape exploits. Third, Hadolint lints Dockerfile instructions against CIS benchmarks in CI, and Trivy scans the final image for CVEs, failing the pipeline if any Critical or High vulnerabilities exist."*
-
-#### Q3: "How does the pipeline prevent breaking changes in production?"
-> **Answer:** *"We use a two-tier GitOps workflow: On Pull Requests (`ci-pr.yml`), code is linted with Ruff, scanned with Bandit and Secretlint, tested via Pytest with coverage reporting, and Terraform configuration is validated with `terraform fmt` and `terraform validate`. Only after all automated gates pass and code is merged to `main` does `deploy.yml` execute `terraform apply` to roll out a new Cloud Run revision."*
-
----
-
-## 9. License
+## 8. License
 Licensed under the Apache License, Version 2.0.
